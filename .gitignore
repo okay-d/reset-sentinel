@@ -1,0 +1,30 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+web/.env.local
+
+# Runtime data and credentials
+**/cookies.json
+**/sentinel.db
+**/sentinel.db-*
+**/*.db
+**/*.db-*
+server/uploads/
+server/*.log
+server/*.err
+
+# Generated files and dependencies
+**/node_modules/
+server/dist/
+web/.next/
+web/out/
+*.tsbuildinfo
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/

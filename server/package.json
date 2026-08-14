@@ -1,0 +1,37 @@
+{
+  "name": "sentinel-server",
+  "version": "0.3.0",
+  "private": true,
+  "description": "重置哨兵 NestJS 后端：监控 X 账号推文、关键词命中、小程序接口、实时推送",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "start:dev": "npm run build && node --env-file-if-exists=.env dist/main.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.29",
+    "@nestjs/core": "^11.1.29",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/platform-express": "^11.1.29",
+    "multer": "^2.2.0",
+    "nodemailer": "^7.0.6",
+    "playwright": "^1.62.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "undici": "^8.10.0",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/node": "^26.2.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3"
+  }
+}

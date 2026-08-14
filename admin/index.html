@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>重置哨兵 · 后台管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f4f0e8;
+      color: #2c2418;
+      min-height: 100vh;
+    }
+    header {
+      background: #2c2418;
+      color: #fff0c7;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    header h1 { font-size: 18px; font-weight: 800; }
+    .conn {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .conn input {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #fff;
+      color: #2c2418;
+    }
+    .conn input.api { width: 220px; }
+    .conn input.token { width: 150px; }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #ff8a3d;
+      color: #fff;
+    }
+    button:hover { opacity: 0.9; }
+    button.ghost { background: #ddd3bf; color: #2c2418; }
+    button.danger { background: #e05b4c; }
+    main { max-width: 960px; margin: 20px auto; padding: 0 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab {
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: #e7ddc8;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .tab.active { background: #2c2418; color: #fff0c7; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(44,36,24,0.08);
+    }
+    .card h2 { font-size: 15px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0e8da; }
+    th { color: #8a7455; font-weight: 600; }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+    .badge.on { background: #d8f5dd; color: #1e7a34; }
+    .badge.off { background: #f5ded8; color: #a03c2e; }
+    .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .form-row input {
+      border: 1px solid #ddd3bf;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      flex: 1;
+      min-width: 120px;
+    }
+    .secret-wrap { display: flex; flex: 1; min-width: 220px; gap: 6px; }
+    .secret-wrap input { min-width: 0; }
+    .secret-toggle { width: 42px; padding: 0; font-size: 16px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .stat { background: #fffaf0; border-radius: 12px; padding: 14px; text-align: center; }
+    .stat .num { font-size: 26px; font-weight: 800; color: #e86a1a; }
+    .stat .label { font-size: 12px; color: #8a7455; margin-top: 4px; }
+    .msg { margin: 10px 0; font-size: 13px; }
+    .msg.ok { color: #1e7a34; }
+    .msg.err { color: #a03c2e; }
+    .inline-actions { display: flex; gap: 6px; }
+    .inline-actions button { padding: 5px 10px; font-size: 12px; }
+    pre.json { background: #f7f2e6; padding: 10px; border-radius: 8px; font-size: 12px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>重置哨兵 · 后台管理</h1>
+    <div class="conn">
+      <input class="api" id="apiBase" placeholder="服务器地址（如 http://127.0.0.1:3000）">
+      <input class="token" id="adminToken" type="password" placeholder="管理口令">
+      <button onclick="saveConn()">保存</button>
+      <button class="ghost" onclick="loadAll()">刷新</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="accounts" onclick="switchTab('accounts')">账号管理</div>
+      <div class="tab" data-tab="subscriptions" onclick="switchTab('subscriptions')">订阅用户</div>
+      <div class="tab" data-tab="email-subscriptions" onclick="switchTab('email-subscriptions')">邮箱提醒</div>
+      <div class="tab" data-tab="push-logs" onclick="switchTab('push-logs')">推送记录</div>
+      <div class="tab" data-tab="feedback" onclick="switchTab('feedback')">意见反馈</div>
+      <div class="tab" data-tab="users" onclick="switchTab('users')">用户列表</div>
+      <div class="tab" data-tab="posts" onclick="switchTab('posts')">推文列表</div>
+      <div class="tab" data-tab="status" onclick="switchTab('status')">系统状态</div>
+    </div>
+
+    <div id="msgBox" class="msg"></div>
+
+    <!-- 账号管理 -->
+    <div class="panel active" id="panel-accounts">
+      <div class="card">
+        <h2>被监控账号</h2>
+        <table>
+          <thead><tr><th>handle</th><th>中文名</th><th>关键词</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody id="accountsBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>添加账号</h2>
+        <div class="form-row">
+          <input id="newHandle" placeholder="X 账号 handle，如 thsottiaux">
+          <input id="newName" placeholder="中文名（订阅消息展示，1~5 个汉字）">
+          <input id="newKeywords" placeholder="关键词，逗号分隔，如 reset,重置">
+          <button onclick="addAccount()">添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 订阅用户 -->
+    <div class="panel" id="panel-subscriptions">
+      <div class="card">
+        <h2>订阅用户</h2>
+        <table>
+          <thead><tr><th>openid</th><th>剩余机会</th><th>模板明细</th><th>订阅时间</th><th>操作</th></tr></thead>
+          <tbody id="subsBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>测试推送</h2>
+        <div class="form-row">
+          <input id="pushText" placeholder="推送内容（可选）">
+          <button onclick="testPush('all')">发给全部订阅用户</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 网页版邮箱提醒 -->
+    <div class="panel" id="panel-email-subscriptions">
+      <div class="card">
+        <h2>邮件服务器配置</h2>
+        <p style="color:#8a7455;font-size:13px;line-height:1.6">配置保存到后端数据库，保存后立即生效。邮箱账号默认脱敏，授权码默认隐藏；点击眼睛可查看。留空授权码表示保留当前授权码。</p>
+        <div class="form-row">
+          <input id="smtpHost" placeholder="SMTP 地址，如 smtp.qq.com">
+          <input id="smtpPort" type="number" placeholder="端口，如 465">
+          <select id="smtpSecure" style="padding:8px 10px;border:1px solid #ddd3bf;border-radius:6px"><option value="true">TLS / SSL</option><option value="false">STARTTLS</option></select>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <input id="smtpUser" placeholder="SMTP 用户名 / 邮箱" onfocus="beginEditSmtpUser()" oninput="onSmtpUserInput()" onblur="maskSmtpUser()">
+          <div class="secret-wrap">
+            <input id="smtpPass" type="password" placeholder="SMTP 密码或授权码" oninput="onSmtpPassInput()">
+            <button id="smtpPassToggle" type="button" class="ghost secret-toggle" title="显示或隐藏授权码" onclick="toggleSmtpPassword()">👁</button>
+          </div>
+          <input id="smtpFrom" placeholder="发件人地址（跟随 SMTP 用户名）" readonly style="background:#f8f3e8">
+          <button onclick="saveEmailConfig()">保存配置</button>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <input id="smtpTestEmail" type="email" placeholder="测试收件邮箱">
+          <button class="ghost" onclick="sendEmailConfigTest()">发送测试邮件</button>
+        </div>
+        <div id="emailConfigStatus" style="margin-top:10px;color:#8a7455;font-size:13px"></div>
+      </div>
+      <div class="card">
+        <h2>网页版邮箱提醒</h2>
+        <p style="color:#8a7455;font-size:13px;line-height:1.6">网页版用户无需登录，提交邮箱后，监控命中新重置动态时会发送邮件。SMTP 是否配置：<strong id="smtpStatus">检查中</strong></p>
+        <table>
+          <thead><tr><th>邮箱</th><th>状态</th><th>创建时间</th><th>最近发送</th><th>最近错误</th><th>操作</th></tr></thead>
+          <tbody id="emailSubsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 推送记录 -->
+    <div class="panel" id="panel-push-logs">
+      <div class="card">
+        <h2>推送记录</h2>
+        <div class="inline-actions" style="margin-bottom:10px">
+          <button class="ghost" onclick="loadPushLogs(pushLogsPage + 1)">加载更多</button>
+          <span id="pushLogsInfo" style="font-size:12px;color:#8a7455;align-self:center"></span>
+        </div>
+        <table>
+          <thead><tr><th>发送时间</th><th>用户</th><th>账号</th><th>来源</th><th>状态</th><th>内容</th><th>失败原因</th></tr></thead>
+          <tbody id="pushLogsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 意见反馈 -->
+    <div class="panel" id="panel-feedback">
+      <div class="card">
+        <h2>意见反馈</h2>
+        <table>
+          <thead><tr><th>时间</th><th>内容</th><th>联系方式</th><th>openid</th></tr></thead>
+          <tbody id="feedbackBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 用户列表 -->
+    <div class="panel" id="panel-users">
+      <div class="card">
+        <h2>已登录用户</h2>
+        <table>
+          <thead><tr><th>openid</th><th>昵称</th><th>头像</th><th>注册时间</th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 推文列表 -->
+    <div class="panel" id="panel-posts">
+      <div class="card">
+        <h2>推文列表</h2>
+        <div class="inline-actions" style="margin-bottom:10px">
+          <button class="ghost" onclick="loadPosts(postsPage + 1)">加载更多</button>
+          <span id="postsInfo" style="font-size:12px;color:#8a7455;align-self:center"></span>
+        </div>
+        <table>
+          <thead><tr><th>时间</th><th>账号</th><th>内容</th><th>重置</th><th>推送</th><th>链接</th></tr></thead>
+          <tbody id="postsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 系统状态 -->
+    <div class="panel" id="panel-status">
+      <div class="card">
+        <h2>运行状态</h2>
+        <div class="stat-grid" id="statusStats"></div>
+        <div style="margin-top:14px"><button onclick="testPush('all')">测试推送（发给全部订阅用户）</button></div>
+        <pre class="json" id="statusJson" style="margin-top:12px"></pre>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let API = localStorage.getItem('sentinelAdminApi') || 'http://127.0.0.1:3000'
+    let TOKEN = localStorage.getItem('sentinelAdminToken') || ''
+    let smtpUserRaw = ''
+    let smtpPassRaw = ''
+    document.getElementById('apiBase').value = API
+    document.getElementById('adminToken').value = TOKEN
+
+    function saveConn() {
+      API = document.getElementById('apiBase').value.trim().replace(/\/$/, '')
+      TOKEN = document.getElementById('adminToken').value.trim()
+      localStorage.setItem('sentinelAdminApi', API)
+      localStorage.setItem('sentinelAdminToken', TOKEN)
+      msg('已保存连接配置', 'ok')
+      loadAll()
+    }
+
+    function msg(text, type) {
+      const box = document.getElementById('msgBox')
+      box.className = 'msg ' + (type || '')
+      box.textContent = text
+      setTimeout(() => { box.textContent = '' }, 5000)
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(API + path, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN, ...(options.headers || {}) },
+      })
+      if (!res.ok) {
+        let detail = 'HTTP ' + res.status
+        try { detail = (await res.json()).message || detail } catch {}
+        throw new Error(detail)
+      }
+      return res.json()
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name))
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name))
+      loadPanel(name)
+    }
+
+    async function loadAll() {
+      try {
+        await Promise.all([
+          loadAccounts(),
+          loadSubscriptions(),
+          loadEmailSubscriptions(),
+          loadEmailConfig(),
+          loadPushLogs(1),
+          loadFeedback(),
+          loadUsers(),
+          loadPosts(1),
+          loadStatus(),
+        ])
+      } catch (e) { msg('加载失败：' + e.message, 'err') }
+    }
+
+    async function loadPanel(name) {
+      try {
+        if (name === 'accounts') await loadAccounts()
+        if (name === 'subscriptions') await loadSubscriptions()
+        if (name === 'email-subscriptions') await loadEmailSubscriptions()
+        if (name === 'email-subscriptions') await loadEmailConfig()
+        if (name === 'push-logs') await loadPushLogs(1)
+        if (name === 'feedback') await loadFeedback()
+        if (name === 'users') await loadUsers()
+        if (name === 'posts') await loadPosts(1)
+        if (name === 'status') await loadStatus()
+      } catch (e) { msg('加载失败：' + e.message, 'err') }
+    }
+
+    async function loadAccounts() {
+      const { list } = await api('/api/admin/accounts')
+      document.getElementById('accountsBody').innerHTML = list.map(a => `
+        <tr>
+          <td>@${a.handle}</td>
+          <td><input value="${esc(a.displayName)}" data-field="displayName" data-handle="${esc(a.handle)}" style="width:120px;padding:4px 8px;border:1px solid #ddd3bf;border-radius:6px"></td>
+          <td><input value="${esc(a.keywords)}" data-field="keywords" data-handle="${esc(a.handle)}" style="width:200px;padding:4px 8px;border:1px solid #ddd3bf;border-radius:6px"></td>
+          <td><span class="badge ${a.enabled ? 'on' : 'off'}">${a.enabled ? '启用' : '停用'}</span></td>
+          <td>
+            <div class="inline-actions">
+              <button onclick="updateAccount('${esc(a.handle)}')">保存</button>
+              <button class="ghost" onclick="toggleAccount('${esc(a.handle)}', ${!a.enabled})">${a.enabled ? '停用' : '启用'}</button>
+              <button class="danger" onclick="removeAccount('${esc(a.handle)}')">删除</button>
+            </div>
+          </td>
+        </tr>`).join('')
+    }
+
+    async function addAccount() {
+      const handle = document.getElementById('newHandle').value.trim()
+      if (!handle) return msg('请输入账号 handle', 'err')
+      try {
+        await api('/api/admin/accounts', { method: 'POST', body: JSON.stringify({
+          handle,
+          displayName: document.getElementById('newName').value.trim(),
+          keywords: document.getElementById('newKeywords').value.trim(),
+        }) })
+        msg('已添加账号 @' + handle, 'ok')
+        document.getElementById('newHandle').value = ''
+        await loadAccounts()
+      } catch (e) { msg('添加失败：' + e.message, 'err') }
+    }
+
+    async function updateAccount(handle) {
+      const nameInput = document.querySelector(`input[data-field="displayName"][data-handle="${handle}"]`)
+      const kwInput = document.querySelector(`input[data-field="keywords"][data-handle="${handle}"]`)
+      try {
+        await api('/api/admin/accounts/' + encodeURIComponent(handle), { method: 'PUT', body: JSON.stringify({
+          displayName: nameInput.value.trim(),
+          keywords: kwInput.value.trim(),
+        }) })
+        msg('已保存 @' + handle, 'ok')
+        await loadAccounts()
+      } catch (e) { msg('保存失败：' + e.message, 'err') }
+    }
+
+    async function toggleAccount(handle, enabled) {
+      try {
+        await api('/api/admin/accounts/' + encodeURIComponent(handle), { method: 'PUT', body: JSON.stringify({ enabled }) })
+        msg(`已${enabled ? '启用' : '停用'} @${handle}`, 'ok')
+        await loadAccounts()
+      } catch (e) { msg('操作失败：' + e.message, 'err') }
+    }
+
+    async function removeAccount(handle) {
+      if (!confirm('确认删除账号 @' + handle + '？')) return
+      try {
+        await api('/api/admin/accounts/' + encodeURIComponent(handle), { method: 'DELETE' })
+        msg('已删除 @' + handle, 'ok')
+        await loadAccounts()
+      } catch (e) { msg('删除失败：' + e.message, 'err') }
+    }
+
+    async function loadSubscriptions() {
+      const { list } = await api('/api/admin/subscriptions')
+      document.getElementById('subsBody').innerHTML = list.length
+        ? list.map(s => {
+          const tmpl = (s.tmplQuotas || []).map(t =>
+            `${t.tmplId.slice(0, 10)}… ×${t.quota}`
+          ).join('、') || '—'
+          return `<tr>
+            <td>${esc(s.openid)}</td>
+            <td>${s.quota}</td>
+            <td>${esc(tmpl)}</td>
+            <td>${esc(s.createdAt)}</td>
+            <td><button onclick="pushToUser('${esc(s.openid)}')">推送重置</button></td>
+          </tr>`
+        }).join('')
+        : '<tr><td colspan="5">暂无订阅用户</td></tr>'
+    }
+
+    async function loadEmailSubscriptions() {
+      const { list, smtpConfigured } = await api('/api/admin/email-subscriptions')
+      document.getElementById('smtpStatus').textContent = smtpConfigured ? '已配置' : '未配置'
+      document.getElementById('smtpStatus').style.color = smtpConfigured ? '#1e7a34' : '#a03c2e'
+      document.getElementById('emailSubsBody').innerHTML = list.length
+        ? list.map(s => `
+          <tr>
+            <td>${esc(s.email)}</td>
+            <td><span class="badge ${s.enabled ? 'on' : 'off'}">${s.enabled ? '启用' : '停用'}</span></td>
+            <td>${esc(s.createdAt || '—')}</td>
+            <td>${esc(s.lastSentAt || '—')}</td>
+            <td style="max-width:260px;color:${s.lastError ? '#a03c2e' : '#8a7455'}">${esc(s.lastError || '—')}</td>
+            <td><div class="inline-actions">
+              <button onclick="testEmailSubscription(${s.id})">测试邮件</button>
+              <button class="ghost" onclick="toggleEmailSubscription(${s.id}, ${!s.enabled})">${s.enabled ? '停用' : '启用'}</button>
+              <button class="danger" onclick="removeEmailSubscription(${s.id})">删除</button>
+            </div></td>
+          </tr>`).join('')
+        : '<tr><td colspan="6">暂无邮箱订阅</td></tr>'
+    }
+
+    async function loadEmailConfig() {
+      const cfg = await api('/api/admin/email-config')
+      document.getElementById('smtpHost').value = cfg.host || ''
+      document.getElementById('smtpPort').value = cfg.port || 465
+      document.getElementById('smtpSecure').value = String(cfg.secure !== false)
+      smtpUserRaw = cfg.user || ''
+      const userInput = document.getElementById('smtpUser')
+      userInput.value = maskEmail(smtpUserRaw)
+      userInput.dataset.masked = 'true'
+      smtpPassRaw = ''
+      const passInput = document.getElementById('smtpPass')
+      passInput.value = cfg.hasPassword ? '********' : ''
+      passInput.dataset.masked = cfg.hasPassword ? 'true' : 'false'
+      passInput.type = 'password'
+      document.getElementById('smtpPassToggle').textContent = '👁'
+      document.getElementById('smtpFrom').value = maskEmail(smtpUserRaw)
+      document.getElementById('emailConfigStatus').textContent = cfg.configured ? '当前状态：已配置，可发送邮件' : '当前状态：未完整配置'
+      document.getElementById('emailConfigStatus').style.color = cfg.configured ? '#1e7a34' : '#a03c2e'
+    }
+
+    function maskEmail(value) {
+      const text = String(value || '')
+      const at = text.indexOf('@')
+      if (at <= 0) return text ? '*'.repeat(Math.max(3, text.length)) : ''
+      return '*'.repeat(Math.max(3, at)) + text.slice(at)
+    }
+
+    function beginEditSmtpUser() {
+      const input = document.getElementById('smtpUser')
+      if (input.dataset.masked === 'true') {
+        input.value = smtpUserRaw
+        input.dataset.masked = 'false'
+      }
+    }
+
+    function onSmtpUserInput() {
+      const input = document.getElementById('smtpUser')
+      input.dataset.masked = 'false'
+      smtpUserRaw = input.value.trim()
+      document.getElementById('smtpFrom').value = maskEmail(smtpUserRaw)
+    }
+
+    function maskSmtpUser() {
+      const input = document.getElementById('smtpUser')
+      if (input.dataset.masked === 'true') return
+      smtpUserRaw = input.value.trim()
+      input.value = maskEmail(smtpUserRaw)
+      input.dataset.masked = 'true'
+      document.getElementById('smtpFrom').value = maskEmail(smtpUserRaw)
+    }
+
+    function onSmtpPassInput() {
+      const input = document.getElementById('smtpPass')
+      input.dataset.masked = 'false'
+      smtpPassRaw = input.value
+    }
+
+    async function toggleSmtpPassword() {
+      const input = document.getElementById('smtpPass')
+      const button = document.getElementById('smtpPassToggle')
+      try {
+        if (input.type === 'password') {
+          if (input.dataset.masked === 'true' || !input.value || input.value === '********') {
+            const result = await api('/api/admin/email-config/secret')
+            smtpPassRaw = result.pass || ''
+            input.value = smtpPassRaw
+            input.dataset.masked = 'false'
+          }
+          input.type = 'text'
+          button.textContent = '🙈'
+        } else {
+          input.type = 'password'
+          input.value = '********'
+          input.dataset.masked = 'true'
+          button.textContent = '👁'
+        }
+      } catch (error) {
+        msg('授权码显示失败：' + (error instanceof Error ? error.message : '请确认后端已重启'), 'err')
+      }
+    }
+
+    async function saveEmailConfig() {
+      try {
+        const userInput = document.getElementById('smtpUser')
+        const user = userInput.dataset.masked === 'true' ? smtpUserRaw : userInput.value.trim()
+        const passInput = document.getElementById('smtpPass')
+        const pass = passInput.dataset.masked === 'true' ? smtpPassRaw : passInput.value
+        const result = await api('/api/admin/email-config', { method: 'PUT', body: JSON.stringify({
+          host: document.getElementById('smtpHost').value.trim(),
+          port: Number(document.getElementById('smtpPort').value || 465),
+          secure: document.getElementById('smtpSecure').value === 'true',
+          user,
+          pass,
+          from: user,
+        }) })
+        if (!result.ok) throw new Error(result.reason || '保存失败')
+        msg('邮件配置已保存并立即生效', 'ok')
+        await loadEmailConfig()
+        await loadEmailSubscriptions()
+        return true
+      } catch (e) { msg('保存邮件配置失败：' + e.message, 'err'); return false }
+    }
+
+    async function sendEmailConfigTest() {
+      const email = document.getElementById('smtpTestEmail').value.trim()
+      if (!email) return msg('请输入测试收件邮箱', 'err')
+      const saved = await saveEmailConfig()
+      if (!saved) return
+      try {
+        const result = await api('/api/admin/email-config/test', { method: 'POST', body: JSON.stringify({ email }) })
+        if (result.ok) msg('测试邮件已发送，请检查收件箱', 'ok')
+        else msg('测试邮件发送失败：' + (result.reason || '未知错误'), 'err')
+      } catch (e) { msg('测试邮件发送失败：' + e.message, 'err') }
+    }
+
+    async function toggleEmailSubscription(id, enabled) {
+      try {
+        await api('/api/admin/email-subscriptions/' + id, { method: 'PUT', body: JSON.stringify({ enabled }) })
+        msg(`邮箱提醒已${enabled ? '启用' : '停用'}`, 'ok')
+        await loadEmailSubscriptions()
+      } catch (e) { msg('操作失败：' + e.message, 'err') }
+    }
+
+    async function removeEmailSubscription(id) {
+      if (!confirm('确认删除这条邮箱订阅？')) return
+      try {
+        await api('/api/admin/email-subscriptions/' + id, { method: 'DELETE' })
+        msg('邮箱订阅已删除', 'ok')
+        await loadEmailSubscriptions()
+      } catch (e) { msg('删除失败：' + e.message, 'err') }
+    }
+
+    async function testEmailSubscription(id) {
+      try {
+        const result = await api('/api/admin/email-subscriptions/' + id + '/test', { method: 'POST', body: '{}' })
+        if (result.ok) msg('测试邮件已发送', 'ok')
+        else msg('测试失败：' + (result.reason || '邮件发送失败'), 'err')
+        await loadEmailSubscriptions()
+      } catch (e) { msg('测试失败：' + e.message, 'err') }
+    }
+
+    /** 把最后一次重置命中推文推送给指定用户（格式与自动推送一致） */
+    async function pushToUser(openid) {
+      try {
+        const r = await api('/api/admin/test-push', { method: 'POST', body: JSON.stringify({ openid }) })
+        const detail = (r.results || []).map(x => x.openid.slice(0, 8) + ':' + (x.sent ? '成功' : '失败')).join('，')
+        if (r.ok) msg('已推送：' + detail, 'ok')
+        else msg('推送结果：' + detail, 'err')
+        await loadSubscriptions()
+      } catch (e) { msg('推送失败：' + e.message, 'err') }
+    }
+
+    let pushLogsPage = 0
+    let pushLogs = []
+    async function loadPushLogs(page) {
+      try {
+        const r = await api('/api/admin/push-logs?page=' + page)
+        pushLogsPage = r.page
+        pushLogs = r.page === 1 ? r.list : pushLogs.concat(r.list)
+        document.getElementById('pushLogsInfo').textContent =
+          `共 ${r.total} 条 · 第 ${r.page} 页${r.hasMore ? ' · 可加载更多' : ''}`
+        const fmt = (iso) => {
+          const d = new Date(iso)
+          if (Number.isNaN(d.getTime())) return iso
+          const p = (n) => (n < 10 ? '0' + n : '' + n)
+          return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+        }
+        const sourceText = (source) => source === 'test' ? '后台测试' : '自动提醒'
+        document.getElementById('pushLogsBody').innerHTML = pushLogs.length
+          ? pushLogs.map(x => `<tr>
+              <td>${esc(fmt(x.pushedAt))}</td>
+              <td title="${esc(x.openid)}">${esc(x.openid.slice(0, 10))}…</td>
+              <td>@${esc(x.account)}</td>
+              <td>${sourceText(x.source)}</td>
+              <td><span class="badge ${x.status === 'success' ? 'on' : 'off'}">${x.status === 'success' ? '成功' : '失败'}</span></td>
+              <td style="max-width:300px;white-space:pre-wrap;word-break:break-all">${esc(x.text)}</td>
+              <td style="max-width:260px;white-space:pre-wrap;word-break:break-all;color:#a03c2e">${esc(x.error || '') || '—'}</td>
+            </tr>`).join('')
+          : '<tr><td colspan="7">暂无推送记录</td></tr>'
+      } catch (e) { msg('加载推送记录失败：' + e.message, 'err') }
+    }
+
+    async function loadStatus() {
+      const st = await api('/api/admin/status')
+      document.getElementById('statusStats').innerHTML = `
+        <div class="stat"><div class="num">${st.posts}</div><div class="label">推文数</div></div>
+        <div class="stat"><div class="num">${st.lastPollResult ? st.lastPollResult.newHits : 0}</div><div class="label">最近命中</div></div>
+        <div class="stat"><div class="num">${st.wechat.configured ? '✓' : '✗'}</div><div class="label">微信凭证</div></div>
+        <div class="stat"><div class="num">${st.wechat.subscribeTmplConfigured ? '✓' : '✗'}</div><div class="label">模板配置</div></div>
+      `
+      document.getElementById('statusJson').textContent = JSON.stringify(st, null, 2)
+    }
+
+    async function loadFeedback() {
+      const { list } = await api('/api/admin/feedback')
+      const fmt = (iso) => {
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return iso
+        const p = (n) => (n < 10 ? '0' + n : '' + n)
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+      }
+      document.getElementById('feedbackBody').innerHTML = list.length
+        ? list.map(f => `<tr>
+            <td>${esc(fmt(f.createdAt))}</td>
+            <td style="white-space:pre-wrap;max-width:420px">${esc(f.content)}</td>
+            <td>${esc(f.contact) || '—'}</td>
+            <td>${esc(f.openid) || '—'}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4">暂无反馈</td></tr>'
+    }
+
+    async function loadUsers() {
+      const { list } = await api('/api/admin/users')
+      const fmt = (iso) => {
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return iso
+        const p = (n) => (n < 10 ? '0' + n : '' + n)
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+      }
+      document.getElementById('usersBody').innerHTML = list.length
+        ? list.map(u => `<tr>
+            <td>${esc(u.openid)}</td>
+            <td>${esc(u.nickname) || '—'}</td>
+            <td>${u.avatar ? `<img src="${esc(u.avatar)}" style="width:32px;height:32px;border-radius:50%">` : '—'}</td>
+            <td>${esc(fmt(u.createdAt))}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4">暂无用户（还没有人登录）</td></tr>'
+    }
+
+    let postsPage = 0
+    let postsHasMore = false
+    async function loadPosts(page) {
+      try {
+        const r = await api('/api/admin/posts?page=' + page)
+        postsPage = r.page
+        postsHasMore = r.hasMore
+        document.getElementById('postsInfo').textContent =
+          `共 ${r.total} 条 · 第 ${r.page} 页${r.hasMore ? ' · 可加载更多' : ''}`
+        const fmt = (iso) => {
+          const d = new Date(iso)
+          if (Number.isNaN(d.getTime())) return iso
+          const p = (n) => (n < 10 ? '0' + n : '' + n)
+          return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+        }
+        document.getElementById('postsBody').innerHTML = r.list.length
+          ? r.list.map(t => `<tr>
+              <td>${esc(fmt(t.createdAt))}</td>
+              <td>@${esc(t.account)}</td>
+              <td style="max-width:380px;word-break:break-all">${esc(t.text)}</td>
+              <td>${t.isReset ? '<span class="badge on">命中</span>' : '<span class="badge off">—</span>'}</td>
+              <td>${t.pushStatus ? `<span class="badge ${t.pushStatus === 'success' ? 'on' : 'off'}">${esc(t.pushStatus)}</span>` : '—'}</td>
+              <td><button class="ghost" onclick="copyText('${esc(t.url)}')">复制</button></td>
+            </tr>`).join('')
+          : '<tr><td colspan="6">暂无推文</td></tr>'
+      } catch (e) { msg('加载推文失败：' + e.message, 'err') }
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => msg('已复制链接', 'ok')).catch(() => msg('复制失败', 'err'))
+    }
+
+    async function testPush(mode) {
+      const text = document.getElementById('pushText') ? document.getElementById('pushText').value.trim() : ''
+      try {
+        const r = await api('/api/admin/test-push', { method: 'POST', body: JSON.stringify({ all: true, text }) })
+        if (r.ok) msg('测试推送已发送', 'ok')
+        else msg('推送结果：' + (r.results || []).map(x => x.openid.slice(0, 8) + ':' + (x.sent ? '成功' : '失败')).join('，'), 'err')
+      } catch (e) { msg('推送失败：' + e.message, 'err') }
+    }
+
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;') }
+
+    loadAll()
+  </script>
+</body>
+</html>

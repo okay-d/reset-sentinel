@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f7f9ff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(112, 228, 255, .22), transparent 28rem),
+    radial-gradient(circle at 100% 10%, rgba(78, 110, 242, .12), transparent 30rem),
+    #f7f9ff;
+  color: #14213d;
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+button, input { font: inherit; }
+
+::selection { color: #14213d; background: #ffd45a; }
+
+@layer components {
+  .panel {
+    @apply rounded-3xl border border-white/70 bg-white/85 shadow-soft backdrop-blur;
+  }
+
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[.18em] text-brand;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
