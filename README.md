@@ -1,5 +1,7 @@
 # Reset Sentinel
 
+[中文说明](README.zh-CN.md)
+
 Open-source web version of Reset Sentinel: a small monitoring service that checks public X posts, organizes reset and speech records into calendars, and sends email alerts when a new match is found.
 
 ![Reset Sentinel web dashboard](docs/screenshots/web-dashboard.png)
@@ -80,47 +82,3 @@ The backend will not execute a proxy-switch command in that mode. Only configure
 ## License
 
 This project is released under the [MIT License](LICENSE).
-
----
-
-# 重置哨兵（中文说明）
-
-这是“重置哨兵”的网页端与后端开源版本：定时检查公开 X 动态，使用关键词识别相关内容，将重置记录和发言记录整理成日历，并在出现新命中时发送邮件提醒。
-
-## 功能
-
-- 定时监控公开动态并识别关键词。
-- 展示重置记录、发言记录、最近命中和指定日期详情。
-- 用户无需注册或登录，输入邮箱即可订阅提醒。
-- 在 `admin/index.html` 中配置 SMTP、发送测试邮件和管理订阅邮箱。
-- `CLASHCTL_COMMAND` 为空时不执行 `clashctl`，直接使用系统代理。
-- 支持先用 mock 数据启动，确认页面后再接入真实数据源。
-
-## 本地启动
-
-后端：
-
-```powershell
-cd server
-Copy-Item .env.example .env
-npm install
-npm run build
-npm run start
-```
-
-前端：
-
-```powershell
-cd web
-npm install
-Copy-Item .env.example .env.local
-npm run dev
-```
-
-默认前端请求 `http://127.0.0.1:3000`。后端地址不同时，修改 `web/.env.local` 中的 `NEXT_PUBLIC_API_BASE_URL`。
-
-## 敏感信息说明
-
-开源仓库不包含 X Cookie、真实数据库、用户邮箱、头像、日志、SMTP 密码和生产环境配置。使用真实爬虫时，请在本地准备自己的 Cookie 文件，并通过 `X_COOKIES_FILE` 指定，禁止提交到仓库。
-
-项目使用 MIT License，详见 [LICENSE](LICENSE)。
